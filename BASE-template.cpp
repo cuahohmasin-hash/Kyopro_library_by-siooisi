@@ -1,3 +1,5 @@
+// Library
+// https://github.com/cuahohmasin-hash/Kyopro_library_by-siooisi
 #pragma region includes
 #ifdef LOCAL
 #define _GLIBCXX_DEBUG
@@ -435,7 +437,7 @@ int main() {
 //- `Ctrl+Alt+G`: Generatorサーバーを起動または再利用し、ブラウザで開く。
 std::ios_base::sync_with_stdio(false);
 std::cin.tie(NULL);
-
+cout<<setprecision(20);
 
 
 auto start_time = chrono::steady_clock::now();
