@@ -415,6 +415,7 @@ using m1 = atcoder::static_modint<1>;
 
 
 
+
 int main() {
 //※※積の問題の0除算　文字列ですべて同じ文字パターン　オーバーフロー
 //※※ifの配列外参照を対策するなら初めに書かないとダメ 対角線は両方チェック
@@ -441,6 +442,7 @@ cout<<setprecision(20);
 
 
 auto start_time = chrono::steady_clock::now();
+
 
 
 
