@@ -1,6 +1,5 @@
 // Library
 // https://github.com/cuahohmasin-hash/Kyopro_library_by-siooisi
-#pragma region includes
 #ifdef LOCAL
 #define _GLIBCXX_DEBUG
 #endif
@@ -225,6 +224,21 @@ inline constexpr long long pow2(int i) { return 1LL << i; }
 inline int bitcount(long long x) {
     return __builtin_popcountll(x);
 }
+// pair: first昇順, second降順
+struct AD {
+    template<class T, class U>
+    bool operator()(const pair<T,U>& a, const pair<T,U>& b) const {
+        return a.first != b.first ? a.first < b.first : a.second > b.second;
+    }
+};
+
+// pair: first降順, second昇順
+struct DA {
+    template<class T, class U>
+    bool operator()(const pair<T,U>& a, const pair<T,U>& b) const {
+        return a.first != b.first ? a.first > b.first : a.second < b.second;
+    }
+};
 
 #define alp "abcdefghijklmnopqrstuvwxyz"
 #define ALP "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -407,7 +421,7 @@ long long nC3(long long n) { return n < 3 ? 0 : (ll)((int128)n * (n - 1) * (n - 
 #else
 #define debug(...) 42
 #endif
-#pragma endregion
+
 
 using m1 = atcoder::static_modint<1>;
 
