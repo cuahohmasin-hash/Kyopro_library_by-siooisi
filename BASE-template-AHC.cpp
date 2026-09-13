@@ -1,3 +1,5 @@
+// Library
+// https://github.com/cuahohmasin-hash/Kyopro_library_by-siooisi
 #include <bits/stdc++.h>
 using namespace std;
 
