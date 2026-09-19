@@ -27,6 +27,8 @@ struct Solver {
 
     void input() {
         // TODO: 問題文に合わせて入力を読む。
+
+
     }
 
     void init() {
@@ -36,10 +38,12 @@ struct Solver {
     void improve() {
         // TODO: 焼きなまし、ビームサーチ、局所改善など。
         // while (!timer.time_up()) { ... }
+
     }
 
     void output() const {
         // TODO: 問題文に合わせて解を出力する。
+
     }
 
     void solve() {
