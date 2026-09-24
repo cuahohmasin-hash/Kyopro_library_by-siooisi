@@ -21,6 +21,17 @@ struct custom_hash {
         return x ^ (x >> 31);
     }
 
+    static ull combine(ull h1, ull h2) {
+        return splitmix64(h1 ^ (h2 + 0x9e3779b97f4a7c15 + (h1 << 6) + (h1 >> 2)));
+    }
+
+    // __int128 は上下64bitを混ぜてハッシュする。
+    static ull hash_int128(__uint128_t x) {
+        ull lo = (ull)x;
+        ull hi = (ull)(x >> 64);
+        return combine(splitmix64(lo), splitmix64(hi));
+    }
+
     static ull hash_any(ull x) {
         static const ull FIXED_RANDOM =
             chrono::steady_clock::now().time_since_epoch().count();
@@ -31,6 +42,20 @@ struct custom_hash {
         return hash_any(x);
     }
 
+    template<class T>
+        requires (is_integral_v<T> && !is_same_v<remove_cv_t<T>, ull>)
+    size_t operator()(T x) const {
+        return hash_any((ull)x);
+    }
+
+    size_t operator()(__int128_t x) const {
+        return hash_int128((__uint128_t)x);
+    }
+
+    size_t operator()(__uint128_t x) const {
+        return hash_int128(x);
+    }
+
     size_t operator()(const string& s) const {
         return hash_any(std::hash<string>{}(s));
     }
@@ -39,8 +64,38 @@ struct custom_hash {
     size_t operator()(const pair<T, U>& p) const {
         ull h1 = (*this)(p.first);
         ull h2 = (*this)(p.second);
-        return splitmix64(h1 ^ (h2 + 0x9e3779b97f4a7c15 + (h1 << 6) + (h1 >> 2)));
+        return combine(h1, h2);
     }
+
+    // 整数幾何の Point{x,y} を直接キーにできる。
+    template<class T>
+        requires requires(const T& p) { p.x; p.y; }
+    size_t operator()(const T& p) const {
+        return combine((*this)(p.x), (*this)(p.y));
+    }
+
+    // 整数幾何の Direction{dx,dy} を直接キーにできる。
+    template<class T>
+        requires requires(const T& d) { d.dx; d.dy; }
+    size_t operator()(const T& d) const {
+        return combine((*this)(d.dx), (*this)(d.dy));
+    }
+
+    // 整数幾何の NormalizedLine{a,b,c} を直接キーにできる。
+    template<class T>
+        requires requires(const T& line) { line.a; line.b; line.c; }
+    size_t operator()(const T& line) const {
+        return combine(combine((*this)(line.a), (*this)(line.b)), (*this)(line.c));
+    }
+
+    // normalized_line の戻り値 optional<NormalizedLine> もそのままキーにできる。
+    template<class T>
+    size_t operator()(const optional<T>& value) const {
+        if (!value) return hash_any(0x6a09e667f3bcc909ULL);
+        return combine(hash_any(0xbb67ae8584caa73bULL), (*this)(*value));
+    }
+
+    
 };
 template<class K, class V> 
 struct safe_map : gp_hash_table<K, V, custom_hash> {
