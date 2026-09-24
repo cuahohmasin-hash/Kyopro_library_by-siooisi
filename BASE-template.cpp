@@ -48,6 +48,12 @@ struct custom_hash {
         return hash_any((ull)x);
     }
 
+    template<class T>
+        requires is_floating_point_v<T>
+    size_t operator()(T x) const {
+        return hash_any(std::hash<T>{}(x));
+    }
+
     size_t operator()(__int128_t x) const {
         return hash_int128((__uint128_t)x);
     }
