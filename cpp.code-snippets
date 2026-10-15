@@ -1178,10 +1178,12 @@
             "// 空prodは{0,LLONG_MAX,LLONG_MIN}。この値も実データに使用可。",
             "struct MinMaxSumSegTree {",
             "    using ll = long long;",
+            "    // sum/mn/mxはそれぞれ独立に結合できる区間情報。境界をまたぐ追加寄与はない。",
             "    struct Node { ll sum, mn, mx; };",
             "    static Node op(Node a, Node b) {",
             "        return {a.sum+b.sum, std::min(a.mn,b.mn), std::max(a.mx,b.mx)};",
             "    }",
+            "    // 空区間: 和には0、min/maxには結果を変えない番兵。葉xは全成分をxにする。",
             "    static Node e() { return {0, LLONG_MAX, LLONG_MIN}; }",
             "    static std::vector<Node> leaves(const std::vector<ll>& a) {",
             "        std::vector<Node> v; v.reserve(a.size());",
@@ -1239,7 +1241,7 @@
             "    }",
             "};"
 ],
-        "description": "和・最小・最大と閾値位置検索"
+        "description": "[典型完成品] 和・最小・最大と閾値位置検索"
     },
     "用途別セグ木: 最小・最大の値と最左位置と個数": {
         "prefix": "snip_segtree_extrema",
@@ -1252,8 +1254,10 @@
             "// 空区間はindex=-1,count=0。0-indexed/[l,r)、構築O(N)、更新・取得O(log N)。",
             "struct ExtremaSegTree {",
             "    using ll=long long;",
+            "    // 値だけでは場所/個数を復元できないため併せて保持。count=0を空区間の印にする。",
             "    struct Extreme { ll value; int index, count; };",
             "    struct Node { Extreme mn,mx; };",
+            "    // 極値が異なれば良い側だけを採用。同値なら個数を足し、最左indexを残す。",
             "    static Extreme merge(Extreme a,Extreme b,bool maximum) {",
             "        if (!a.count) return b;",
             "        if (!b.count) return a;",
@@ -1262,6 +1266,7 @@
             "    }",
             "    static Node op(Node a,Node b) { return {merge(a.mn,b.mn,false),merge(a.mx,b.mx,true)}; }",
             "    static Node e() { return {{LLONG_MAX,-1,0},{LLONG_MIN,-1,0}}; }",
+            "    // 葉iは最小/最大とも{A[i],i,1}。空の番兵と実データはcountで区別する。",
             "    static std::vector<Node> leaves(const std::vector<ll>& a) {",
             "        std::vector<Node> v;",
             "        for (int i=0;i<(int)a.size();++i) v.push_back({{a[i],i,1},{a[i],i,1}});",
@@ -1273,8 +1278,8 @@
             "    void set(int i,ll x) { seg.set(i,{{x,i,1},{x,i,1}}); }",
             "    Node prod(int l,int r) const { return seg.prod(l,r); }",
             "};"
-        ],
-        "description": "最小・最大の値と最左位置と個数"
+],
+        "description": "[典型完成品] 最小・最大の値と最左位置と個数"
     },
     "用途別セグ木: 非負頻度・k番目・prefix和lower_bound": {
         "prefix": "snip_segtree_frequency",
@@ -1291,6 +1296,8 @@
             "// 構築O(N)、更新・検索・prod O(log N)。総頻度はllに収める。",
             "struct FrequencySegTree {",
             "    using ll=long long;",
+            "    // 葉はその位置の頻度、ノードは総頻度。左右の和だけで結合でき、空区間は0。",
+            "    // 非負頻度に限ることで「和がkを超えるか」が単調になり、kth検索が成立する。",
             "    static ll op(ll a,ll b) { return a+b; }",
             "    static ll e() { return 0; }",
             "    static std::vector<ll> checked(std::vector<ll> a) { for(ll x:a) { assert(x>=0); (void)x; } return a; }",
@@ -1327,7 +1334,7 @@
             "    }",
             "};"
 ],
-        "description": "非負頻度・k番目・prefix和lower_bound"
+        "description": "[典型完成品] 非負頻度・k番目・prefix和lower_bound"
     },
     "用途別セグ木: GCD・LCM・XOR・AND・OR": {
         "prefix": "snip_segtree_integer_ops",
@@ -1342,6 +1349,8 @@
             "// seg(N)は「単位元」初期化。LCMは1、ANDは全bit1、その他0。ゼロ配列ならvectorで渡す。",
             "namespace integer_seg_detail {",
             "using U=unsigned long long;",
+            "// 葉は元の値。各opが区間の集約値そのものを保持するので追加のNode情報は不要。",
+            "// 空区間は各演算の単位元: gcd/xor/or=0、lcm=1、and=全bit1。",
             "inline U gcd_op(U a,U b){ return std::gcd(a,b); }",
             "inline U lcm_op(U a,U b){",
             "    if(!a || !b) return 0;",
@@ -1361,8 +1370,8 @@
             "using XorSegTree=atcoder::segtree<unsigned long long,integer_seg_detail::xor_op,integer_seg_detail::zero>;",
             "using AndSegTree=atcoder::segtree<unsigned long long,integer_seg_detail::and_op,integer_seg_detail::ones>;",
             "using OrSegTree=atcoder::segtree<unsigned long long,integer_seg_detail::or_op,integer_seg_detail::zero>;"
-        ],
-        "description": "GCD・LCM・XOR・AND・OR"
+],
+        "description": "[汎用基盤] GCD・LCM・XOR・AND・OR"
     },
     "用途別セグ木: 最大連続部分列和（空部分列可）": {
         "prefix": "snip_segtree_max_subarray",
@@ -1375,12 +1384,15 @@
             "// 0-indexed/[l,r)。構築O(N)、更新・取得O(log N)。中間和もll範囲。",
             "struct MaxSubarraySegTree {",
             "    using ll=long long;",
+            "    // bestだけでは境界をまたぐ候補を作れない。左右のpref/suffと全体sumも保持する。",
             "    struct Node {ll sum,pref,suff,best;};",
+            "    // bestは左内/右内/左suff+右pref。pref/suffは片側全体を使う候補と比較する。",
             "    static Node op(Node a,Node b){",
             "        return {a.sum+b.sum,std::max(a.pref,a.sum+b.pref),std::max(b.suff,b.sum+a.suff),",
             "                std::max({a.best,b.best,a.suff+b.pref})};",
             "    }",
-            "    static Node e(){return {0,0,0,0};}",
+            "    static Node e(){return {0,0,0,0};} // 空部分列を許すので単位元は全0。",
+            "    // 葉の和はx、最適部分列は「xを使う/空」の良い方。",
             "    static Node leaf(ll x){return {x,std::max(0LL,x),std::max(0LL,x),std::max(0LL,x)};}",
             "    static std::vector<Node> leaves(const std::vector<ll>& a){",
             "        std::vector<Node> v; for(ll x:a) v.push_back(leaf(x)); return v;",
@@ -1391,8 +1403,8 @@
             "    void set(int i,ll x){seg.set(i,leaf(x));}",
             "    Node prod(int l,int r) const {return seg.prod(l,r);}",
             "};"
-        ],
-        "description": "最大連続部分列和（空部分列可）"
+],
+        "description": "[典型完成品] 最大連続部分列和（空部分列可）"
     },
     "用途別セグ木: 区間代入・加算と和・最小・最大": {
         "prefix": "snip_lazyseg_set_add_stats",
@@ -1408,12 +1420,14 @@
             "struct RangeSetAddSegTree {",
             "    using ll=long long;",
             "    using Sum=__int128_t;",
+            "    // lenは全要素への加算/代入を総和へ反映するために必要。min/maxは一様更新で直接動く。",
             "    struct Node {Sum sum; ll mn,mx; int len;};",
+            "    // タグは「必要なら代入し、その後add」。代入なしのvalueは使わない。",
             "    struct Tag {bool has_set=false; ll value=0; __int128_t add=0;};",
             "    static Node op(Node a,Node b){",
             "        return {a.sum+b.sum,std::min(a.mn,b.mn),std::max(a.mx,b.mx),a.len+b.len};",
             "    }",
-            "    static Node e(){return {0,LLONG_MAX,LLONG_MIN,0};}",
+            "    static Node e(){return {0,LLONG_MAX,LLONG_MIN,0};} // 空区間はlen=0で更新も無視する。",
             "    static Node mapping(Tag f,Node x){",
             "        if(!x.len) return x;",
             "        if(f.has_set){",
@@ -1428,6 +1442,7 @@
             "        g.add+=f.add; return g;",
             "    }",
             "    static Tag id(){return {};}",
+            "    // 葉xは和/最小/最大=x、len=1。opは左右の集約値を成分ごとに結合する。",
             "    static std::vector<Node> leaves(const std::vector<ll>& a){",
             "        std::vector<Node> v; for(ll x:a) v.push_back({x,x,x,1}); return v;",
             "    }",
@@ -1462,7 +1477,7 @@
             "    int size(){return seg.all_prod().len;}",
             "};"
 ],
-        "description": "区間代入・加算と和・最小・最大"
+        "description": "[典型完成品] 区間代入・加算と和・最小・最大"
     },
     "用途別セグ木: 0/1反転と最長連続長": {
         "prefix": "snip_lazyseg_binary_run",
@@ -1474,7 +1489,9 @@
             "// auto v=seg.prod(l,r); v.best[0/1]は0/1の最長連続長、pref/suffは接頭/接尾連続長。",
             "// 0-indexed/[l,r)。空区間の長さはすべて0。構築O(N)、操作O(log N)。",
             "struct BinaryRunSegTree {",
+            "    // 各bitのpref/suffは境界をまたぐ連続列に必要。lenで「区間全部が同じ」を判定する。",
             "    struct Node {int len=0; std::array<int,2> pref{},suff{},best{};};",
+            "    // 左内/右内/左suff+右prefの最大。片側が全てtなら接頭/接尾を延長できる。",
             "    static Node op(Node a,Node b){",
             "        Node c; c.len=a.len+b.len;",
             "        for(int t=0;t<2;++t){",
@@ -1484,13 +1501,15 @@
             "        }",
             "        return c;",
             "    }",
-            "    static Node e(){return {};}",
+            "    static Node e(){return {};} // 空区間は長さ全0で、どちらに結合しても情報を変えない。",
+            "    // 反転は0/1の役割を交換するだけ。両bitの情報を持つから葉へ下ろさず更新できる。",
             "    static Node mapping(bool f,Node x){",
             "        if(f){std::swap(x.pref[0],x.pref[1]);std::swap(x.suff[0],x.suff[1]);std::swap(x.best[0],x.best[1]);}",
             "        return x;",
             "    }",
-            "    static bool composition(bool f,bool g){return f!=g;}",
+            "    static bool composition(bool f,bool g){return f!=g;} // gの後にf。2回反転は恒等作用。",
             "    static bool id(){return false;}",
+            "    // 葉は長さ1、実際のbitだけpref/suff/best=1、反対のbitは0。",
             "    static Node leaf(int t){assert(t==0||t==1); Node x; x.len=1; x.pref[t]=x.suff[t]=x.best[t]=1; return x;}",
             "    static std::vector<Node> leaves(const std::string& s){",
             "        std::vector<Node> v; for(char c:s) v.push_back(leaf(c-'0')); return v;",
@@ -1501,8 +1520,8 @@
             "    void set(int i,int t){seg.set(i,leaf(t));}",
             "    Node prod(int l,int r){return seg.prod(l,r);}",
             "};"
-        ],
-        "description": "0/1反転と最長連続長"
+],
+        "description": "[典型完成品] 0/1反転と最長連続長"
     },
     "用途別セグ木: 任意次元の行列積": {
         "prefix": "snip_segtree_matrix_product",
@@ -1518,23 +1537,25 @@
             "template<class T,int D=2>",
             "struct MatrixProductSegTree {",
             "    static_assert(D>0);",
+            "    // 区間内の全遷移を1行列に圧縮。状態ごとの入出力を保持するので任意のDPへ適用できる。",
             "    using Matrix=std::array<std::array<T,D>,D>;",
             "    static Matrix identity(){Matrix m{};for(int i=0;i<D;++i)m[i][i]=T(1);return m;}",
+            "    // 中間状態kで分割し、左i→kと右k→jの寄与を足す。左→右の順を逆にしない。",
             "    static Matrix multiply(const Matrix& a,const Matrix& b){",
             "        Matrix c{};",
             "        for(int i=0;i<D;++i)for(int k=0;k<D;++k)for(int j=0;j<D;++j)c[i][j]+=a[i][k]*b[k][j];",
             "        return c;",
             "    }",
             "    static Matrix op(Matrix a,Matrix b){return multiply(a,b);}",
-            "    static Matrix e(){return identity();}",
+            "    static Matrix e(){return identity();} // 空区間は状態を変えない。葉には1要素の遷移を渡す。",
             "    atcoder::segtree<Matrix,op,e> seg;",
             "    explicit MatrixProductSegTree(const std::vector<Matrix>& a):seg(a){}",
             "    explicit MatrixProductSegTree(int n=0):seg(n){}",
             "    void set(int i,const Matrix& m){seg.set(i,m);}",
             "    Matrix prod(int l,int r)const{return seg.prod(l,r);}",
             "};"
-        ],
-        "description": "任意次元の行列積"
+],
+        "description": "[汎用基盤] 任意次元の行列積"
     },
     "用途別セグ木: 更新付き括弧列判定": {
         "prefix": "snip_segtree_bracket",
@@ -1546,9 +1567,11 @@
             "// prod(l,r)={sum,mn_prefix}。空接頭辞込みでmn_prefixを取る。空区間はvalid=true。",
             "// 0-indexed/[l,r)。構築O(N)、更新・判定O(log N)。文字は '(' / ')' のみ。",
             "struct BracketSegTree {",
+            "    // sumだけでは途中の閉じ括弧過多を検出できないため、最小prefix和も保持する。",
             "    struct Node {int sum,mn_prefix;};",
+            "    // 右側prefixは左全体のsumだけ持ち上げる。左内の最小prefixとの小さい方を取る。",
             "    static Node op(Node a,Node b){return {a.sum+b.sum,std::min(a.mn_prefix,a.sum+b.mn_prefix)};}",
-            "    static Node e(){return {0,0};}",
+            "    static Node e(){return {0,0};} // 空区間/空prefixは0。葉'('は{1,0}、')'は{-1,-1}。",
             "    static Node leaf(char c){assert(c=='('||c==')');return c=='(' ? Node{1,0}:Node{-1,-1};}",
             "    static std::vector<Node> leaves(const std::string& s){std::vector<Node> v;for(char c:s)v.push_back(leaf(c));return v;}",
             "    atcoder::segtree<Node,op,e> seg;",
@@ -1557,8 +1580,8 @@
             "    Node prod(int l,int r)const{return seg.prod(l,r);}",
             "    bool valid(int l,int r)const{auto x=prod(l,r);return x.sum==0 && x.mn_prefix>=0;}",
             "};"
-        ],
-        "description": "更新付き括弧列判定"
+],
+        "description": "[典型完成品] 更新付き括弧列判定"
     },
     "用途別セグ木: 更新付き双方向2重ハッシュ": {
         "prefix": "snip_segtree_string_hash",
@@ -1575,7 +1598,9 @@
             "    inline static constexpr U mod[2]={1000000007ULL,1000000009ULL};",
             "    static U make_base(){std::mt19937_64 rng(std::chrono::steady_clock::now().time_since_epoch().count());return 256+rng()%(mod[0]-512);}",
             "    inline static const U base=make_base();",
+            "    // power=base^lenは結合時の桁シフト用。逆向きも持つことで回文を同じ情報で判定する。",
             "    struct Node {std::array<U,2> fwd{},rev{},power{1,1}; int len=0;};",
+            "    // 順方向は左hashを右の長さだけシフト、逆方向は右hashを左の長さだけシフト。",
             "    static Node op(Node a,Node b){",
             "        Node c; c.len=a.len+b.len;",
             "        for(int t=0;t<2;++t){",
@@ -1585,7 +1610,8 @@
             "        }",
             "        return c;",
             "    }",
-            "    static Node e(){return {};}",
+            "    static Node e(){return {};} // 空文字列: hash=0、power=1、len=0。",
+            "    // 1文字は順/逆同じ値、power=base。+1してゼロ文字も長さ込みで区別する。",
             "    static Node leaf(unsigned char c){U x=U(c)+1;return {{x,x},{x,x},{base,base},1};}",
             "    static std::vector<Node> leaves(const std::string& s){std::vector<Node> v;for(unsigned char c:s)v.push_back(leaf(c));return v;}",
             "    atcoder::segtree<Node,op,e> seg;",
@@ -1595,8 +1621,8 @@
             "    bool same(int l,int r,int l2,int r2)const{auto a=prod(l,r),b=prod(l2,r2);return a.len==b.len && a.fwd==b.fwd;}",
             "    bool palindrome(int l,int r)const{auto a=prod(l,r);return a.fwd==a.rev;}",
             "};"
-        ],
-        "description": "更新付き双方向2重ハッシュ"
+],
+        "description": "[典型完成品] 更新付き双方向2重ハッシュ"
     },
     "用途別セグ木: Segment Tree Beats chmin/chmax/add/sum": {
         "prefix": "snip_segtree_beats",
@@ -1612,12 +1638,15 @@
             "class SegmentTreeBeats {",
             "    using Wide=__int128_t;",
             "    static constexpr Wide INF=Wide(1)<<120;",
+            "    // 第2極値と極値個数を持つため、chmin/chmaxが極値だけを変える場合はsumまで直接更新可。",
+            "    // len=0の初期Nodeは空、葉xはsum=mn=mx=x、極値個数/len=1、第2極値は番兵。",
             "    struct Node {",
             "        Wide sum=0, mn=INF, mn2=INF, mx=-INF, mx2=-INF, add=0;",
             "        int nmin=0,nmax=0,len=0;",
             "    };",
             "    int n;",
             "    std::vector<Node> tree;",
+            "    // 和/極値/個数を左右から集約。第2極値は「親の極値を除いた」左右候補の良い方。",
             "    void pull(int p){",
             "        const auto &a=tree[p*2], &b=tree[p*2+1];",
             "        Node c; c.len=a.len+b.len;c.sum=a.sum+b.sum;",
@@ -1692,8 +1721,8 @@
             "    Wide range_min(int l,int r){check(l,r);return l==r?INF:query(1,0,n,l,r,1);}",
             "    Wide range_max(int l,int r){check(l,r);return l==r?-INF:query(1,0,n,l,r,2);}",
             "};"
-        ],
-        "description": "Segment Tree Beats chmin/chmax/add/sum"
+],
+        "description": "[典型完成品] Segment Tree Beats chmin/chmax/add/sum"
     },
     "Weighted DSU (Union-Find)": {
         "prefix": "snip_weighted_dsu",
@@ -1800,7 +1829,54 @@
             "// 宣言時のコピペ用: segtree<SegNode, op, e> seg(N);",
             "// 配列Aから構築用: segtree<SegNode, op, e> seg(A);"
         ],
-        "description": "ACLのsegtree用の要素型(SegNode)・演算(op)・単位元(e)の空枠"
+        "description": "[設計用] ACLのsegtree用の要素型(SegNode)・演算(op)・単位元(e)の空枠"
+    },
+    "ACL Segtree Design Template": {
+        "prefix": "snip_segtree_design",
+        "body": [
+            "// [設計用] ACL segtree: Node / op / e / make_leaf を問題に合わせて埋める。",
+            "// 初期形はsum+len。sum・中間の加算はlong longに収める。区間は0-indexed / [l,r)。",
+            "// 1. 答えだけで左右を結合できる？できなければ境界用の情報も持つ。",
+            "//    例: 転倒数→各値の個数、連続長→両端値+prefix/suffix、順位和→個数+総和。",
+            "// 2. op(L,R) = 左内部 + 右内部 + 境界をまたぐ寄与、の形を考える。",
+            "// 3. e()は空区間、make_leaf(x)は1要素。両者を区別する。",
+            "// 4. op(op(a,b),c)==op(a,op(b,c))、op(e(),a)==op(a,e())==aを確認。",
+            "//    非可換でも可。op(L,R)の左→右の順序は変えない。",
+            "// グローバルop/eは他の空枠と衝突するので、同時展開時はnamespaceで分ける。",
+            "struct SegDesignNode {",
+            "    // 欲しい答えと、左右を結合するための補助情報。",
+            "    ${1:long long sum = 0;}",
+            "    ${2:int len = 0;}",
+            "};",
+            "",
+            "SegDesignNode op(SegDesignNode L, SegDesignNode R) {",
+            "    // 空区間で境界値が未定義になる型なら、まずlen==0の側を除く。",
+            "    // 例: 転倒数ではΣ L.count[x]*R.count[y] (x>y)を追加する。",
+            "    return SegDesignNode{",
+            "        ${3:L.sum + R.sum},",
+            "        ${4:L.len + R.len}",
+            "    };",
+            "}",
+            "",
+            "SegDesignNode e() {",
+            "    // 空区間: sum/lenは0。minなら+INF、maxなら-INFなど、全成分を考える。",
+            "    return SegDesignNode{${5:0}, ${6:0}};",
+            "}",
+            "",
+            "SegDesignNode make_leaf(long long x) {",
+            "    // 1要素: sum=x,len=1。転倒数なら内部転倒0、xの個数だけ1。",
+            "    return SegDesignNode{${7:x}, ${8:1}};",
+            "}",
+            "",
+            "#if 0 // main内の構築例（Node/op/e/make_leafをそろえてから有効化）",
+            "vector<SegDesignNode> ${9:init}(${10:N});",
+            "for (int i = 0; i < ${10:N}; ++i) ${9:init}[i] = make_leaf(${11:A[i]});",
+            "atcoder::segtree<SegDesignNode, op, e> ${12:seg}(${9:init});",
+            "// 点更新: seg.set(i,make_leaf(x)); 区間取得: seg.prod(l,r); 空はe()。",
+            "#endif",
+            "$0"
+        ],
+        "description": "[設計用] ACL segtreeの複合Node・結合・単位元・葉の設計テンプレート"
     },
     "回文判定": {
         "prefix": "snip_palindrome",
@@ -2502,10 +2578,11 @@
         "*/",
         "$0"
       ],
-      "description": "ACL遅延セグメント木（区間加算・区間和取得）"
+      "description": "[典型完成品] ACL遅延セグメント木（区間加算・区間和取得）"
     },
     "// mint998 用遅延セグ木。区間加算・区間代入・区間乗算・アフィン変換 / 区間和。":{
         "prefix": "snip_segtree_mod",
+        "description": "[典型完成品] mint998の区間affine変換・区間和",
         "body": [
 
         "// MintRangeAffineSegTree seg(A); range_add(l,r,x), range_set(l,r,x), range_mul(l,r,x), range_affine(l,r,a,b)。",
@@ -2513,14 +2590,17 @@
         "// range_affine(l,r,a,b) は各要素を x -> a*x+b に更新。割り算は range_mul(l,r,x.inv())。",
         "// prod(l,r) は {sum,len}。構築 O(N)、各更新・取得 O(log N)。",
         "struct MintRangeAffineSegTree {",
+        "    // 一様な+bで区間和がb*len増えるため、和だけでなく要素数も保持する。",
         "    struct Node { mint998 sum; int len; };",
         "    struct Tag { mint998 mul = 1, add = 0; };",
         "",
         "    static Node op(Node a, Node b) {",
+        "        // 左右の和と長さを足す。空区間{0,0}ならどちら側でも情報を変えない。",
         "        return {a.sum + b.sum, a.len + b.len};",
         "    }",
         "    static Node e() { return {0, 0}; }",
         "    static Node mapping(Tag f, Node x) {",
+        "        // Σ(mul*x+add)=mul*Σx+add*len。len自体は更新で変わらない。",
         "        return {f.mul * x.sum + f.add * x.len, x.len};",
         "    }",
         "    static Tag composition(Tag f, Tag g) { // gの後にf: f(g(x))",
@@ -2590,7 +2670,7 @@
         "*/",
         "$0"
       ],
-      "description": "ACL遅延セグメント木（区間変更・区間最大値取得）"
+      "description": "[典型完成品] ACL遅延セグメント木（区間変更・区間最大値取得）"
     },
     "Lazy Segment Tree (Range Add / Range Min)": {
       "prefix": "snip_lazyseg_add_min",
@@ -2621,7 +2701,7 @@
         "*/",
         "$0"
       ],
-      "description": "ACL遅延セグメント木（区間加算・区間最小値取得）"
+      "description": "[典型完成品] ACL遅延セグメント木（区間加算・区間最小値取得）"
     },
     "Lazy Segment Tree (Range Affine / Range Sum)": {
       "prefix": "snip_lazyseg_affine_sum",
@@ -2658,7 +2738,7 @@
         "*/",
         "$0"
       ],
-      "description": "ACL遅延セグメント木（区間アフィン変換・区間和取得）"
+      "description": "[典型完成品] ACL遅延セグメント木（区間アフィン変換・区間和取得）"
     },
 "閉区間に含まれる条件を満たす要素の数": {
     "prefix": "snip_count_interval",
@@ -2896,7 +2976,7 @@
         "SegNeighborNode op(SegNeighborNode a, SegNeighborNode b) { return {max(a.first, b.first), min(a.second, b.second)}; }",
         "SegNeighborNode e() { return {-INF, INF}; }"
     ],
-    "description": "セグ木による値の存在管理と直前・直後の値の取得"
+    "description": "[典型完成品] セグ木による値の存在管理と直前・直後の値の取得"
 },
 "SPFを用いた高速素因数分解": {
     "prefix": "snip_spf",
@@ -3661,7 +3741,7 @@
       "F id() { return {}; }",
       "// 区間 [l,r) を x に変更: seg.apply(l, r, F{true, x});"
     ],
-    "description": "区間更新・一点取得に特化した遅延セグ木 (ACL代用)"
+    "description": "[典型完成品] 区間更新・一点取得に特化した遅延セグ木 (ACL代用)"
   },
   "Run-Length Two Pointers": {
     "prefix": "snip_rltp",
@@ -4983,7 +5063,7 @@
     "#endif",
     "$0"
   ],
-  "description": "ACL lazy_segtree 空テンプレ"
+  "description": "[設計用] ACL lazy_segtree 空テンプレ"
 },"ACL Lazy Segment Tree Empty Template with Length": {
   "prefix": "snip_lazyseg_empty_len",
   "body": [
@@ -5042,7 +5122,7 @@
     "#endif",
     "$0"
   ],
-  "description": "ACL lazy_segtree 空テンプレ len付き"
+  "description": "[設計用] ACL lazy_segtree 空テンプレ len付き"
 },"ACL Lazy Segment Tree Design Template": {
   "prefix": "snip_lazyseg_design",
   "body": [
@@ -5111,7 +5191,7 @@
     "#endif",
     "$0"
   ],
-  "description": "ACL lazy_segtree 設計用テンプレ"
+  "description": "[設計用] ACL lazy_segtree 設計用テンプレ"
 },"safe_map版双方向リスト": {
   "prefix": "snip_hash_doubly_linked_list",
   "body": [
@@ -12671,7 +12751,9 @@
             "// 同じ値は転倒に数えない。個数・転倒数はlong longに収める。",
             "template<int K> struct SmallAlphabetInversionSegTree {",
             "    static_assert(K > 0);",
+            "    // 転倒数だけでは左右をまたぐ組数が分からないため、各値の出現数も保持する。",
             "    struct Node { std::array<long long,K> count{}; long long inversions=0; };",
+            "    // 左内+右内にΣx(左のx個数)*(右のx未満の個数)を追加。lowerは右の累積個数。",
             "    static Node op(Node a, Node b) {",
             "        Node c; c.inversions=a.inversions+b.inversions;",
             "        long long lower=0;",
@@ -12681,7 +12763,7 @@
             "        }",
             "        return c;",
             "    }",
-            "    static Node e() { return {}; }",
+            "    static Node e() { return {}; } // 空は個数/転倒数とも0。葉は値xの個数だけ1、転倒数0。",
             "    static Node leaf(int x) { assert(0<=x&&x<K); Node a; a.count[x]=1; return a; }",
             "    static std::vector<Node> leaves(const std::vector<int>& a) {",
             "        std::vector<Node> v; v.reserve(a.size()); for(int x:a) v.push_back(leaf(x)); return v;",
@@ -12697,7 +12779,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_SMALL_ALPHABET_INVERSION_HPP"
         ],
-        "description": "小さい値域の区間転倒数 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[典型完成品] 小さい値域の区間転倒数 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 固定patternの重み付き部分列数": {
         "prefix": "snip_segtree_weighted_subsequence",
@@ -12716,6 +12798,7 @@
             "// 構築O(P^3 N)、更新・prod O(P^3 log N)、メモリO(P^2 N)。Mintはmodint等。",
             "template<int P,class Mint> struct WeightedSubsequenceSegTree {",
             "    static_assert(P>0);",
+            "    // pattern全体の答えだけでなく、全pattern[i..j)の重み和を保持して境界で分割可能にする。",
             "    struct Node {",
             "        std::array<Mint,P*(P+1)/2> ways{};",
             "        static int index(int i,int j){return i*P-i*(i-1)/2+j-i-1;}",
@@ -12723,6 +12806,7 @@
             "            assert(0<=i&&i<=j&&j<=P); return i==j?Mint(1):ways[index(i,j)];",
             "        }",
             "    };",
+            "    // 左だけ/右だけで完成する寄与と、patternをkで分けて左前半*右後半となる寄与を足す。",
             "    static Node op(Node a,Node b){",
             "        Node c;",
             "        for(int i=0;i<P;++i)for(int j=i+1;j<=P;++j){",
@@ -12732,7 +12816,8 @@
             "        }",
             "        return c;",
             "    }",
-            "    static Node e(){return {};}",
+            "    static Node e(){return {};} // 空の非空patternへの寄与は0、空pattern count(i,i)だけ1。",
+            "    // 1文字の葉で作れるのは長さ1のpattern片だけ。重複文字でも1つの葉を再利用しない。",
             "    static Node leaf(const std::string& pattern,char ch,Mint weight){",
             "        assert((int)pattern.size()==P); Node a;",
             "        for(int i=0;i<P;++i)if(pattern[i]==ch)a.ways[Node::index(i,i+1)]=weight;",
@@ -12759,7 +12844,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_WEIGHTED_SUBSEQUENCE_HPP"
         ],
-        "description": "固定patternの重み付き部分列数 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[典型完成品] 固定patternの重み付き部分列数 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 任意値の同値連続長": {
         "prefix": "snip_segtree_equal_run",
@@ -12776,7 +12861,10 @@
             "// prod(l,r)はlen,pref,suff,best,left,rightを返す。空区間はlen=0、境界値は未使用。",
             "// 0-indexed / [l,r)。構築O(N)、更新・prod O(log N)、メモリO(N)。",
             "template<class T> struct EqualRunSegTree {",
+            "    // 境界値left/rightで結合可能か判定し、pref/suffで境界をまたぐ連続長を作る。",
+            "    // lenは「区間全体が同値か」の判定用。bestだけでは左右を結合できない。",
             "    struct Node {int len=0,pref=0,suff=0,best=0;T left{},right{};};",
+            "    // 基本は左右内のbest。左right==右leftなら左suff+右prefも候補にする。",
             "    static Node op(Node a,Node b){",
             "        if(!a.len)return b;",
             "        if(!b.len)return a;",
@@ -12788,7 +12876,7 @@
             "        }",
             "        return c;",
             "    }",
-            "    static Node e(){return {};}",
+            "    static Node e(){return {};} // len=0は単位元で境界値を参照しない。葉xは全長1、両端x。",
             "    static Node leaf(const T& x){return {1,1,1,1,x,x};}",
             "    static std::vector<Node> leaves(const std::vector<T>& a){",
             "        std::vector<Node> v;v.reserve(a.size());for(const T& x:a)v.push_back(leaf(x));return v;",
@@ -12805,7 +12893,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_EQUAL_RUN_HPP"
         ],
-        "description": "任意値の同値連続長 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[典型完成品] 任意値の同値連続長 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 順位付き和を持つ多重集合": {
         "prefix": "snip_segtree_rank_weighted_multiset",
@@ -12825,10 +12913,13 @@
             "// 係数・値はmodへ正規化（負値可）、個数の総和はlong longに収める。",
             "template<class Mint> struct RankWeightedMultiset {",
             "    using ll=long long;",
+            "    // countは右側の順位の繰り上げに必要、sumは繰り上げ分を一括加算するために必要。",
             "    struct Node{ll count=0;Mint sum=0,weighted=0;};",
+            "    // 値域順に左→右。右の各順位は左countだけ増えるので、weightedに左count*右sumを足す。",
             "    static Node op(Node a,Node b){return {a.count+b.count,a.sum+b.sum,a.weighted+b.weighted+Mint(a.count)*b.sum};}",
-            "    static Node e(){return {};}",
+            "    static Node e(){return {};} // 空集合は個数/和/順位付き和=0。",
             "    static Mint to_mint(__int128_t x){x%=Mint::mod();if(x<0)x+=Mint::mod();return Mint((ll)x);}",
+            "    // 同じvalueがcount個ならsum=value*count、weighted=value*(1+...+count)。",
             "    static Node leaf(ll value,ll count){",
             "        assert(count>=0);",
             "        Mint x=to_mint(value),c=to_mint(count);",
@@ -12871,7 +12962,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_RANK_WEIGHTED_MULTISET_HPP"
         ],
-        "description": "順位付き和を持つ多重集合 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[典型完成品] 順位付き和を持つ多重集合 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 加算mod・bit関数・clamp移動の合成": {
         "prefix": "snip_segtree_function_composition",
@@ -12891,6 +12982,8 @@
             "template<long long Mod=998244353> struct AddModFunction {",
             "    static_assert(Mod>0);",
             "    using Int=__int128_t;",
+            "    // modが1回以上あれば ((x+before) mod Mod)+after へ圧縮できる。",
+            "    // 最後のmodの前後を分けると、区間外から渡される任意のxに対して評価できる。",
             "    bool has_mod=false;",
             "    Int before=0,after=0;",
             "    static Int residue(Int x){x%=Mod;return x<0?x+Mod:x;}",
@@ -12898,13 +12991,15 @@
             "    static AddModFunction modulo(){return {true,0,0};}",
             "    Int eval(Int x)const{return (has_mod?residue(x+before):x)+after;}",
             "    static AddModFunction combine(AddModFunction a,AddModFunction b){",
+            "        // bにmodがなければ末尾へ加算。あればaの加算分もbのmodの内側へまとめる。",
             "        if(!b.has_mod){a.after+=b.after;return a;}",
             "        return {true,residue(a.before+residue(a.after)+b.before),b.after};",
             "    }",
             "};",
             "",
-            "// Bits bit独立な任意の論理関数。各bitの入力0/1に対する出力で保持。",
+            "// Bits bit独立な任意の論理関数。各bitは入力0/1だけで決まるので、その出力zero/oneを保持。",
             "// F::bit_and(x), bit_or(x), bit_xor(x), nand(x), nor(x), bit_not(), constant(x)。",
+            "// F::from_truth_table(table,rhs): 任意の二項演算で右引数をrhsに固定（tableは0..15）。",
             "// NAND畳み込み: seg.apply(l+1,r,A[l])（区間[l,r)、最初の値は初期値として渡す）。",
             "template<int Bits=30,class UInt=unsigned long long> struct BitwiseFunction {",
             "    static_assert(std::is_unsigned_v<UInt>&&sizeof(UInt)<=8);",
@@ -12919,6 +13014,16 @@
             "    static BitwiseFunction nor(UInt x){return {UInt((~x)&mask),0};}",
             "    static BitwiseFunction bit_not(){return {mask,0};}",
             "    static BitwiseFunction constant(UInt x){return {UInt(x&mask),UInt(x&mask)};}",
+            "    // tableのbit (2*a+b) = 二項演算(a,b)の出力。下位から(0,0),(0,1),(1,0),(1,1)。",
+            "    // 例: AND=8, OR=14, XOR=6, NAND=7, NOR=1。各bitでxを左、rhsを右に適用する。",
+            "    static BitwiseFunction from_truth_table(unsigned table,UInt rhs){",
+            "        if(table>=16)throw std::invalid_argument(\"truth table must be in [0,16)\");",
+            "        rhs&=mask;",
+            "        UInt not_rhs=UInt(mask^rhs);",
+            "        return {UInt(((table&1u)?not_rhs:UInt(0))|((table&2u)?rhs:UInt(0))),",
+            "                UInt(((table&4u)?not_rhs:UInt(0))|((table&8u)?rhs:UInt(0)))};",
+            "    }",
+            "    // 左区間a -> 右区間bの順に適用するため、結合はb(a(x))。順序は交換できない。",
             "    static BitwiseFunction combine(BitwiseFunction a,BitwiseFunction b){return {b.eval(a.zero),b.eval(a.one)};}",
             "};",
             "",
@@ -12930,6 +13035,8 @@
             "template<class T=__int128_t> struct ClampMotionFunction {",
             "    static_assert((std::is_integral_v<T> && std::is_signed_v<T>)||std::is_same_v<T,__int128_t>);",
             "    bool empty=true;",
+            "    // lower/upperは未飽和入力の区間。外では位置が飽和し、移動距離も距離分だけ減る。",
+            "    // 最終位置だけでは総距離を復元できないため、gainも同時に保持する。",
             "    T lower=0,upper=0,shift=0,gain=0;",
             "    static T clamp(T x,T l,T r){return std::min(std::max(x,l),r);}",
             "    static T distance(T x,T l,T r){return x<l?l-x:(x>r?x-r:T(0));}",
@@ -12943,6 +13050,7 @@
             "    static ClampMotionFunction combine(ClampMotionFunction a,ClampMotionFunction b){",
             "        if(a.empty)return b;",
             "        if(b.empty)return a;",
+            "        // bの未飽和区間をaの入力へ引き戻し、新しい飽和区間と距離利得を求める。",
             "        T l=clamp(b.lower-a.shift,a.lower,a.upper);",
             "        T r=clamp(b.upper-a.shift,a.lower,a.upper);",
             "        T y=l+a.shift;",
@@ -12954,6 +13062,7 @@
             "// seg.prod(l,r)は合成関数、seg.apply(l,r,x)は評価結果。0-indexed / [l,r)。",
             "// 構築O(N)、更新・prod・apply O(log N)、メモリO(N)。空区間は恒等関数。",
             "template<class Function> struct FunctionCompositionSegTree {",
+            "    // 区間情報は関数そのもの。combine(a,b)=b(a(x))、既定構築Function{}は恒等関数。",
             "    static Function op(Function a,Function b){return Function::combine(a,b);}",
             "    static Function e(){return {};}",
             "    int n;",
@@ -12969,7 +13078,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_FUNCTION_COMPOSITION_HPP"
         ],
-        "description": "加算mod・bit関数・clamp移動の合成 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[汎用基盤] 加算mod・bit関数・clamp移動の合成 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 区間affineとK乗和": {
         "prefix": "snip_lazyseg_affine_moments",
@@ -12989,13 +13098,15 @@
             "template<class Mint, int K>",
             "struct RangeAffineMomentSegTree {",
             "    static_assert(K >= 1);",
+            "    // (a*x+b)^kの二項展開には0..k乗和が全て必要。K乗和だけでは一様更新できない。",
             "    struct Node { std::array<Mint,K+1> moment{}; };",
             "    struct Tag { Mint a=1,b=0; };",
+            "    // 各乗和は左右の和で結合。0乗和は要素数で、定数項b^kの寄与を計算する。",
             "    static Node op(Node x,Node y) {",
             "        for(int k=0;k<=K;++k) x.moment[k]+=y.moment[k];",
             "        return x;",
             "    }",
-            "    static Node e() { return {}; }",
+            "    static Node e() { return {}; } // 空区間は0乗和も含め全0。",
             "    static const auto& binomial() {",
             "        static const auto c=[] {",
             "            std::array<std::array<Mint,K+1>,K+1> a{};",
@@ -13007,6 +13118,7 @@
             "        }();",
             "        return c;",
             "    }",
+            "    // Σ(a*x+b)^k=Σj binom(k,j)*a^j*b^(k-j)*Σx^j。更新前の全乗和から同時に作る。",
             "    static Node mapping(Tag f,Node x) {",
             "        std::array<Mint,K+1> ap{},bp{};",
             "        ap[0]=bp[0]=1;",
@@ -13019,6 +13131,7 @@
             "    }",
             "    static Tag composition(Tag f,Tag g) { return {f.a*g.a,f.a*g.b+f.b}; } // gの後にf",
             "    static Tag id() { return {}; }",
+            "    // 葉は0乗=1、k乗=x^k。タグ恒等元はx←1*x+0。",
             "    static Node leaf(Mint x) {",
             "        Node v; v.moment[0]=1;",
             "        for(int k=1;k<=K;++k) v.moment[k]=v.moment[k-1]*x;",
@@ -13044,7 +13157,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_AFFINE_MOMENTS_HPP"
         ],
-        "description": "区間affineとK乗和 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[典型完成品] 区間affineとK乗和 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 長さ付き圧縮座標の01反転・個数": {
         "prefix": "snip_lazyseg_weighted_flip",
@@ -13065,12 +13178,15 @@
             "// 長さ・答えはint128。LLONG_MINからLLONG_MAXまでの境界差も計算できる。",
             "struct WeightedFlipSumSegTree {",
             "    using i128=__int128_t;",
+            "    // lenは圧縮後の葉の個数でなく実長。1の実長onesを持てば反転後はlen-onesで得られる。",
             "    struct Node { i128 len=0,ones=0; };",
+            "    // 左右の実長と1の実長を加算。空区間は両方0で反転しても変わらない。",
             "    static Node op(Node x,Node y) { return {x.len+y.len,x.ones+y.ones}; }",
             "    static Node e() { return {}; }",
             "    static Node mapping(bool f,Node x) { if(f) x.ones=x.len-x.ones; return x; }",
-            "    static bool composition(bool f,bool g) { return f!=g; }",
+            "    static bool composition(bool f,bool g) { return f!=g; } // gの後にf。2回反転は打ち消し合う。",
             "    static bool id() { return false; }",
+            "    // 1つの葉は均一bitの実長L: {len=L,ones=L*bit}。境界を追加せず途中だけ更新はできない。",
             "    static std::vector<Node> leaves(const std::vector<long long>& lengths,const std::vector<int>& bits) {",
             "        assert(bits.empty()||bits.size()==lengths.size());",
             "        std::vector<Node> v; v.reserve(lengths.size());",
@@ -13113,7 +13229,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_WEIGHTED_FLIP_HPP"
         ],
-        "description": "長さ付き圧縮座標の01反転・個数 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[典型完成品] 長さ付き圧縮座標の01反転・個数 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 区間加算・最小値位置の重み和と個数": {
         "prefix": "snip_lazyseg_weighted_min",
@@ -13133,7 +13249,10 @@
             "struct RangeAddWeightedMinSegTree {",
             "    using i128=__int128_t;",
             "    static constexpr i128 INF=i128(1)<<125;",
+            "    // 最小値位置のcount/weightだけ保持。他の位置は一様加算でも最小値にならないので不要。",
+            "    // count=0で空を識別し、重み0/負重みの実データと区別する。",
             "    struct Node { i128 mn=INF,weight=0; int count=0; };",
+            "    // 小さいmn側を採用、同値ならcount/weightを足す。境界をまたぐ新しい候補はない。",
             "    static Node op(Node x,Node y) {",
             "        if(!x.count) return y;",
             "        if(!y.count) return x;",
@@ -13142,9 +13261,10 @@
             "        return {x.mn,x.weight+y.weight,x.count+y.count};",
             "    }",
             "    static Node e() { return {}; }",
-            "    static Node mapping(i128 f,Node x) { if(x.count) x.mn+=f; return x; }",
+            "    static Node mapping(i128 f,Node x) { if(x.count) x.mn+=f; return x; } // 全位置同じ加算で最小位置は不変。",
             "    static i128 composition(i128 f,i128 g) { return f+g; }",
             "    static i128 id() { return 0; }",
+            "    // 葉iは{A[i],weight[i],1}。eはcount/weight=0、加算タグの恒等元は0。",
             "    static std::vector<Node> leaves(const std::vector<long long>& a,const std::vector<long long>& w) {",
             "        assert(w.empty()||w.size()==a.size());",
             "        std::vector<Node> v; v.reserve(a.size());",
@@ -13167,7 +13287,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_WEIGHTED_MIN_COUNT_HPP"
         ],
-        "description": "区間加算・最小値位置の重み和と個数 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[典型完成品] 区間加算・最小値位置の重み和と個数 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 区間代入・加算・履歴和": {
         "prefix": "snip_lazyseg_historic_sum",
@@ -13187,9 +13307,11 @@
             "// 0-indexed/[l,r)。構築O(N)、各操作O(log N)。全てint128（範囲内で使用）。",
             "struct RangeAssignAddHistoricSegTree {",
             "    using i128=__int128_t;",
+            "    // 現在値sumと記録済みhistoryを分離。lenを持てば代入/定数加算も集約値だけで更新できる。",
             "    struct Node { i128 sum=0,history=0,len=0; };",
             "    // x←a*x+b, h←h+c*x+d。aは0（代入）または1。hの式は更新前のxを使用。",
             "    struct Tag { i128 a=1,b=0,c=0,d=0; };",
+            "    // 左右の現在和/履歴和/長さを独立に加算。空は全0で全タグに対して不変。",
             "    static Node op(Node x,Node y) { return {x.sum+y.sum,x.history+y.history,x.len+y.len}; }",
             "    static Node e() { return {}; }",
             "    static Node mapping(Tag f,Node x) {",
@@ -13199,6 +13321,7 @@
             "        return {f.a*g.a,f.a*g.b+f.b,g.c+f.c*g.a,g.d+f.c*g.b+f.d};",
             "    }",
             "    static Tag id() { return {}; }",
+            "    // 葉xは{sum=x,history=0,len=1}。初期値も履歴へ入れるなら別途tickを呼ぶ。",
             "    static std::vector<Node> leaves(const std::vector<long long>& a) {",
             "        std::vector<Node> v; v.reserve(a.size());",
             "        for(auto x:a) v.push_back({x,0,1});",
@@ -13222,7 +13345,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_HISTORIC_SUM_HPP"
         ],
-        "description": "区間代入・加算・履歴和 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[専門型] 区間代入・加算・履歴和 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 最小値への条件付き履歴加算": {
         "prefix": "snip_lazyseg_min_count_history",
@@ -13243,10 +13366,13 @@
             "struct RangeAddMinCountHistorySegTree {",
             "    using i128=__int128_t;",
             "    static constexpr i128 INF=i128(1)<<125;",
+            "    // 判定時に全C>=1ならC=1の位置は最小値位置だけ。mn/countでその履歴増分を一括計算できる。",
+            "    // historyは最小位置に限らず区間内全Dの和。count=0は空区間。",
             "    struct Node { i128 mn=INF,history=0; int count=0; };",
             "    // add=最終Cの変化、offset=条件判定時の最小の累積変化、hits=その時のD増分。",
             "    // 全C>=1の前提から、それ以外のoffsetでの判定はDを変更できない。",
             "    struct Tag { i128 add=0,offset=0,hits=0; };",
+            "    // historyは常に左右分を加算。mn/countは低い側だけ、同値なら個数を足す。",
             "    static Node op(Node x,Node y) {",
             "        if(!x.count) return y;",
             "        if(!y.count) return x;",
@@ -13270,6 +13396,7 @@
             "        return h;",
             "    }",
             "    static Tag id() { return {}; }",
+            "    // 葉Cは{mn=C,history=0,count=1}。eはcount/history=0でmappingも何もしない。",
             "    static std::vector<Node> leaves(const std::vector<long long>& a) {",
             "        std::vector<Node> v; v.reserve(a.size());",
             "        for(auto x:a) v.push_back({x,0,1});",
@@ -13297,7 +13424,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_MIN_COUNT_HISTORY_HPP"
         ],
-        "description": "最小値への条件付き履歴加算 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[専門型] 最小値への条件付き履歴加算 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 汎用・非可換作用の双対セグ木": {
         "prefix": "snip_dual_segment_tree",
@@ -13316,8 +13443,11 @@
             "template<class Value,class Tag,auto mapping,auto composition,auto id>",
             "class DualSegmentTree {",
             "    int n_=0,size_=1,log_=0;",
+            "    // 区間集約値を持たず、葉のValueと内部ノードの未伝播Tagだけを保持する。",
+            "    // 葉の初期値は渡された値そのもの。空区間へのapplyは何もせず、タグの単位元はid()。",
             "    std::vector<Value> values_;",
             "    std::vector<Tag> lazy_;",
+            "    // 新しいfを古いlazyの後に合成。Value用op/eがない代わりにTagの結合法則が必要。",
             "    void apply_node(int k,const Tag& f) {",
             "        if(k<size_) lazy_[k]=composition(f,lazy_[k]);",
             "        else if(k-size_<n_) values_[k-size_]=mapping(f,values_[k-size_]);",
@@ -13363,7 +13493,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_DUAL_SEGMENT_TREE_HPP"
         ],
-        "description": "汎用・非可換作用の双対セグ木 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[汎用基盤] 汎用・非可換作用の双対セグ木 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 複数列の区間置換・最大prefix和検索": {
         "prefix": "snip_lazyseg_permutation_prefix",
@@ -13389,7 +13519,9 @@
             "    using Values=std::array<long long,K>;",
             "    using Permutation=std::array<int,K>;",
             "    static constexpr i128 NEG_INF=-(i128(1)<<125);",
+            "    // 負値混在ではsumだけでprefix検索できない。列ごとの最大prefix和を併せて保持する。",
             "    struct Node { int len=0; std::array<i128,K> sum{},pref{}; };",
+            "    // prefixは左内か「左全体+右prefix」。len=0を空として扱い、非空prefixの意味を保つ。",
             "    static Node op(Node x,Node y) {",
             "        if(!x.len) return y;",
             "        if(!y.len) return x;",
@@ -13398,6 +13530,7 @@
             "        return z;",
             "    }",
             "    static Node e() { Node x; x.pref.fill(NEG_INF); return x; }",
+            "    // 全位置へ同じ列置換なので、各列のsum/prefをそのまま並べ替えればよい。",
             "    static Node mapping(Permutation f,Node x) {",
             "        Node y; y.len=x.len;",
             "        for(int j=0;j<K;++j) { y.sum[j]=x.sum[f[j]]; y.pref[j]=x.pref[f[j]]; }",
@@ -13407,6 +13540,7 @@
             "        Permutation h; for(int j=0;j<K;++j) h[j]=g[f[j]]; return h; // gの後にf",
             "    }",
             "    static Permutation id() { Permutation p; std::iota(p.begin(),p.end(),0); return p; }",
+            "    // 葉はsum=pref=その列の値（負値でも0にしない）。空eはpref=-INF、恒等置換はp[j]=j。",
             "    static Node leaf(const Values& a) {",
             "        Node x; x.len=1;",
             "        for(int j=0;j<K;++j) x.sum[j]=x.pref[j]=a[j];",
@@ -13445,7 +13579,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_PERMUTATION_PREFIX_HPP"
         ],
-        "description": "複数列の区間置換・最大prefix和検索 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[専門型] 複数列の区間置換・最大prefix和検索 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 通常・max/min-plus・上三角行列": {
         "prefix": "snip_semiring_matrix",
@@ -13524,11 +13658,13 @@
             "    // multiplyで考慮する(i,k,j)の個数。D=5: 通常125、上三角35。",
             "    static constexpr long long multiply_terms = Upper ? 1LL * D * (D + 1) * (D + 2) / 6",
             "                                                      : 1LL * D * D * D;",
+            "    // 全i→jの寄与を保持することで、左右の境界状態kを介した合成に必要な情報が揃う。",
             "    std::array<std::array<T, D>, D> a;",
             "    SemiringMatrix() { for (auto& row : a) row.fill(Policy::zero()); }",
             "    auto& operator[](int i) { return a[i]; }",
             "    const auto& operator[](int i) const { return a[i]; }",
             "    bool operator==(const SemiringMatrix&) const = default;",
+            "    // 空区間の単位元: 同じ状態への遷移だけone、異なる状態へはzero（半環ごとに値が違う）。",
             "    static SemiringMatrix identity() {",
             "        SemiringMatrix m;",
             "        for (int i = 0; i < D; ++i) m[i][i] = Policy::one();",
@@ -13541,6 +13677,8 @@
             "        }",
             "        return true;",
             "    }",
+            "    // 左i→kと右k→jをmultiplyで接続し、可能な中間状態kをaddで集約する。",
+            "    // 通常半環なら重み積の総和、max/min-plusなら経路重み和の最大/最小となる。",
             "    static SemiringMatrix multiply(const SemiringMatrix& x, const SemiringMatrix& y) {",
             "        SemiringMatrix z;",
             "        for (int i = 0; i < D; ++i) {",
@@ -13580,7 +13718,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_SEMIRING_MATRIX_HPP"
         ],
-        "description": "通常・max/min-plus・上三角行列 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[汎用基盤] 通常・max/min-plus・上三角行列 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 半環行列積・区間ベクトル適用": {
         "prefix": "snip_segtree_semiring_matrix",
@@ -13663,11 +13801,13 @@
             "    // multiplyで考慮する(i,k,j)の個数。D=5: 通常125、上三角35。",
             "    static constexpr long long multiply_terms = Upper ? 1LL * D * (D + 1) * (D + 2) / 6",
             "                                                      : 1LL * D * D * D;",
+            "    // 全i→jの寄与を保持することで、左右の境界状態kを介した合成に必要な情報が揃う。",
             "    std::array<std::array<T, D>, D> a;",
             "    SemiringMatrix() { for (auto& row : a) row.fill(Policy::zero()); }",
             "    auto& operator[](int i) { return a[i]; }",
             "    const auto& operator[](int i) const { return a[i]; }",
             "    bool operator==(const SemiringMatrix&) const = default;",
+            "    // 空区間の単位元: 同じ状態への遷移だけone、異なる状態へはzero（半環ごとに値が違う）。",
             "    static SemiringMatrix identity() {",
             "        SemiringMatrix m;",
             "        for (int i = 0; i < D; ++i) m[i][i] = Policy::one();",
@@ -13680,6 +13820,8 @@
             "        }",
             "        return true;",
             "    }",
+            "    // 左i→kと右k→jをmultiplyで接続し、可能な中間状態kをaddで集約する。",
+            "    // 通常半環なら重み積の総和、max/min-plusなら経路重み和の最大/最小となる。",
             "    static SemiringMatrix multiply(const SemiringMatrix& x, const SemiringMatrix& y) {",
             "        SemiringMatrix z;",
             "        for (int i = 0; i < D; ++i) {",
@@ -13736,6 +13878,8 @@
             "    using T = typename Matrix::T;",
             "private:",
             "    int n_ = 0, size_ = 1;",
+            "    // 葉は1要素の遷移、内部ノードは左→右に全要素を通った遷移行列。",
+            "    // 余った葉/空区間は単位行列。Mat{}の全zero行列を単位元にしない。",
             "    std::vector<Matrix> tree_;",
             "public:",
             "    explicit SemiringMatrixSegTree(int n = 0)",
@@ -13758,6 +13902,7 @@
             "    }",
             "    Matrix get(int p) const { assert(0 <= p && p < n_); return tree_[size_ + p]; }",
             "    Matrix all_prod() const { return tree_[1]; }",
+            "    // 非可換な積の順序を保つため、左集約は後ろへ、右集約は前へノードを追加する。",
             "    Matrix prod(int l, int r) const {",
             "        assert(0 <= l && l <= r && r <= n_);",
             "        Matrix left = Matrix::identity(), right = Matrix::identity();",
@@ -13786,7 +13931,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_SEMIRING_MATRIX_TREE_HPP"
         ],
-        "description": "半環行列積・区間ベクトル適用 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[汎用基盤] 半環行列積・区間ベクトル適用 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 高々K個の連続部分列最大和": {
         "prefix": "snip_segtree_max_k_subarrays",
@@ -13873,11 +14018,13 @@
             "    // multiplyで考慮する(i,k,j)の個数。D=5: 通常125、上三角35。",
             "    static constexpr long long multiply_terms = Upper ? 1LL * D * (D + 1) * (D + 2) / 6",
             "                                                      : 1LL * D * D * D;",
+            "    // 全i→jの寄与を保持することで、左右の境界状態kを介した合成に必要な情報が揃う。",
             "    std::array<std::array<T, D>, D> a;",
             "    SemiringMatrix() { for (auto& row : a) row.fill(Policy::zero()); }",
             "    auto& operator[](int i) { return a[i]; }",
             "    const auto& operator[](int i) const { return a[i]; }",
             "    bool operator==(const SemiringMatrix&) const = default;",
+            "    // 空区間の単位元: 同じ状態への遷移だけone、異なる状態へはzero（半環ごとに値が違う）。",
             "    static SemiringMatrix identity() {",
             "        SemiringMatrix m;",
             "        for (int i = 0; i < D; ++i) m[i][i] = Policy::one();",
@@ -13890,6 +14037,8 @@
             "        }",
             "        return true;",
             "    }",
+            "    // 左i→kと右k→jをmultiplyで接続し、可能な中間状態kをaddで集約する。",
+            "    // 通常半環なら重み積の総和、max/min-plusなら経路重み和の最大/最小となる。",
             "    static SemiringMatrix multiply(const SemiringMatrix& x, const SemiringMatrix& y) {",
             "        SemiringMatrix z;",
             "        for (int i = 0; i < D; ++i) {",
@@ -13946,6 +14095,8 @@
             "    using T = typename Matrix::T;",
             "private:",
             "    int n_ = 0, size_ = 1;",
+            "    // 葉は1要素の遷移、内部ノードは左→右に全要素を通った遷移行列。",
+            "    // 余った葉/空区間は単位行列。Mat{}の全zero行列を単位元にしない。",
             "    std::vector<Matrix> tree_;",
             "public:",
             "    explicit SemiringMatrixSegTree(int n = 0)",
@@ -13968,6 +14119,7 @@
             "    }",
             "    Matrix get(int p) const { assert(0 <= p && p < n_); return tree_[size_ + p]; }",
             "    Matrix all_prod() const { return tree_[1]; }",
+            "    // 非可換な積の順序を保つため、左集約は後ろへ、右集約は前へノードを追加する。",
             "    Matrix prod(int l, int r) const {",
             "        assert(0 <= l && l <= r && r <= n_);",
             "        Matrix left = Matrix::identity(), right = Matrix::identity();",
@@ -14008,9 +14160,12 @@
             "class MaxKSubarraysSegTree {",
             "    static_assert(K >= 0);",
             "public:",
+            "    // 2K+1状態の全遷移を保持。区間の結合は「左の終状態=右の始状態」でDPを接続する。",
             "    using Matrix = MaxPlusMatrix<2 * K + 1, T, true>;",
             "    using Policy = typename Matrix::Policy;",
             "    SemiringMatrixSegTree<Matrix> seg;",
+            "    // 状態jが奇数ならこの要素を選んで+x、偶数なら不選択で+0。j>=iが区間の順序を保つ。",
+            "    // 空区間は基盤の単位行列。初期状態0のみ重み0にし、最後は全終状態の最大を取る。",
             "    static Matrix leaf(T x) {",
             "        assert(-Policy::inf < x && x < Policy::inf);",
             "        Matrix m;",
@@ -14038,7 +14193,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_MAX_K_SUBARRAYS_HPP"
         ],
-        "description": "高々K個の連続部分列最大和 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[典型完成品] 高々K個の連続部分列最大和 / cp名前空間 / ヘッダの使用例・条件参照"
     },
     "追加ライブラリ: 細いグリッドの行更新・同色連結判定": {
         "prefix": "snip_segtree_narrow_grid_connectivity",
@@ -14073,12 +14228,15 @@
             "        }",
             "    };",
             "public:",
+            "    // 区間外との接続は上下端からだけ起きるので、内部全マスでなく境界の色/同値関係で十分。",
+            "    // 境界に触れない内部成分は外から新しくつなげないため保持不要。",
             "    struct Node {",
             "        std::array<char, W> top{}, bottom{};",
             "        std::array<int, 2 * W> component{};",
             "        bool empty = true;",
             "    };",
-            "    static Node identity() { return {}; }",
+            "    static Node identity() { return {}; } // empty=trueの空区間はmerge時にそのまま相手を返す。",
+            "    // 葉は同じ1行を上下端に置き、同一マスの上下コピーと同色の横隣接をつなぐ。",
             "    static Node leaf(const std::string& row) {",
             "        assert((int)row.size() == W);",
             "        Node a; a.empty = false;",
@@ -14096,6 +14254,8 @@
             "        }",
             "        return a;",
             "    }",
+            "    // 左右（上/下）内の同値関係を復元し、接合面の同色マスをつなぐ。",
+            "    // 最後に外側の上下端だけへ射影すると、次のmergeにも同じNode形式が使える。",
             "    static Node merge(Node a, Node b) {",
             "        if (a.empty) return b;",
             "        if (b.empty) return a;",
@@ -14160,7 +14320,7 @@
             "} // namespace cp",
             "#endif // CP_GENERATED_SEGTREE_NARROW_GRID_CONNECTIVITY_HPP"
         ],
-        "description": "細いグリッドの行更新・同色連結判定 / cp名前空間 / ヘッダの使用例・条件参照"
+        "description": "[専門型] 細いグリッドの行更新・同色連結判定 / cp名前空間 / ヘッダの使用例・条件参照"
     }
     // END GENERATED CP LIBRARY
 }
