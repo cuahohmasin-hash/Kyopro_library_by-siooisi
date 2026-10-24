@@ -313,7 +313,6 @@ struct DA {
 #define YES cout << "YES" << endl
 #define NO cout << "NO" << endl
 void YN(bool cond) { cout << (cond ? "Yes" : "No") << "\n"; }
-#define endl "\n"
 #define syousu cout<<fixed<<setprecision(15) 
 
 template<typename T1, typename T2> istream& operator>>(istream& is, pair<T1, T2>& p) { is >> p.first >> p.second; return is; }
@@ -477,15 +476,157 @@ template<class T> ll len(const T& x) { return (ll)x.size(); }
 long long nC2(long long n) { return n < 2 ? 0 : (ll)((int128)n * (n - 1) / 2); }
 long long nC3(long long n) { return n < 3 ? 0 : (ll)((int128)n * (n - 1) * (n - 2) / 6); }
 
-#ifdef LOCAL
-#include "debug.h"
-#else
-#define debug(...) 42
-#endif
 
 
 using m1 = atcoder::static_modint<1>;
 
+// BEGIN DEBUG SEGTREE
+#ifndef KYOPRO_DEBUG_SEGTREE_HPP
+#define KYOPRO_DEBUG_SEGTREE_HPP
+
+// debug_seg(seg,N); debug_seg(seg,l,r); debug_seg(seg,N,[](auto x){return x.sum;});
+// 標準は値だけ。debug_seg_indexは添字つき、debug_seg_tableは添字/値を2行で表示。
+// LOCAL / KYOPRO_DEBUG 時のみ有効。添字は0-indexed、区間は[l,r)。
+// ACL非依存。get(i)、公開seg、range_sum/prod/query(i,i+1)、取得ラムダに対応。
+#if defined(LOCAL) || defined(KYOPRO_DEBUG)
+#include <algorithm>
+#include <cassert>
+#include <functional>
+#include <iostream>
+#include <iterator>
+#include <sstream>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+namespace kyopro_debug_seg_detail {
+inline int max_items = 64; // 大きい木の出力上限。負数なら全要素を表示。
+enum class Layout { values, indexed, table };
+
+template<class T> void print(std::ostream& os, const T& value) {
+    if constexpr (std::is_same_v<T, __int128_t> || std::is_same_v<T, __uint128_t>) {
+        __uint128_t x = static_cast<__uint128_t>(value);
+        if constexpr (std::is_same_v<T, __int128_t>) {
+            if (value < 0) { os << '-'; x = __uint128_t(0) - x; }
+        }
+        char digits[40]; int n = 0;
+        do { digits[n++] = char('0' + x % 10); x /= 10; } while (x);
+        while (n) os << digits[--n];
+    } else if constexpr (requires { os << value; }) {
+        os << value;
+    } else if constexpr (requires { value.val(); }) {
+        print(os, value.val()); // modint
+    } else if constexpr (requires { std::tuple_size<T>::value; }) {
+        os << '('; int i = 0;
+        std::apply([&](const auto&... fields) {
+            ((os << (i++ ? ", " : ""), print(os, fields)), ...);
+        }, value);
+        os << ')';
+    } else if constexpr (requires { std::begin(value); std::end(value); }) {
+        os << '{'; bool first = true;
+        for (const auto& x : value) {
+            if (!first) os << ", ";
+            first = false; print(os, x);
+        }
+        os << '}';
+    } else {
+        static_assert(sizeof(T) == 0,
+            "debug_seg: specify a formatter, e.g. [](auto x){return std::make_tuple(x.sum,x.len);}");
+    }
+}
+
+template<class Tree> decltype(auto) get(Tree& tree, long long i) {
+    if constexpr (requires { tree.get(i); }) return tree.get(i);
+    else if constexpr (requires { tree.seg; }) return get(tree.seg, i);
+    else if constexpr (requires { tree.range_sum(i,i+1); }) return tree.range_sum(i,i+1);
+    else if constexpr (requires { tree.prod(i,i+1); }) return tree.prod(i,i+1);
+    else if constexpr (requires { tree.query(i,i+1); }) return tree.query(i,i+1);
+    else if constexpr (std::invocable<Tree&, long long>) return std::invoke(tree,i);
+    else static_assert(sizeof(Tree) == 0,
+        "debug_seg: pass a point reader, e.g. [&](int i){return tree.get(root,i);}");
+}
+
+template<class Tree, class Format>
+void dump(Layout layout, const char* name, Tree&& tree, long long l, long long r, Format format) {
+    assert(l <= r); // 座標範囲はセグ木側で検査する。負の座標も使用可。
+    using U = unsigned long long;
+    U length = U(r)-U(l); // LLONG_MIN..LLONG_MAXの区間でも差がoverflowしない。
+    U count = max_items < 0 ? length : std::min(length, U(max_items));
+    std::cerr << '[' << name << "] [" << l << ',' << r << "): ";
+    if (layout == Layout::table && length) {
+        // 各点を1回だけ読み、添字と値を別の行へ同じ幅で配置する。
+        std::vector<std::pair<std::string,std::string>> cells;
+        for (U j = 0; j < count; ++j) {
+            long long i = static_cast<long long>(__int128_t(l)+j);
+            std::ostringstream value;
+            print(value, std::invoke(format, get(tree, i)));
+            cells.emplace_back(std::to_string(i), value.str());
+        }
+        std::cerr << '\n';
+        for (int row = 0; row < 2; ++row) {
+            std::cerr << (row ? "value |" : "index |");
+            for (const auto& [index,value] : cells) {
+                const auto& text = row ? value : index;
+                auto width = std::max(index.size(), value.size());
+                std::cerr << ' ' << std::string(width-text.size(), ' ') << text << " |";
+            }
+            if (count < length) {
+                std::cerr << " ...";
+                if (row) std::cerr << " (+" << length-count << ')';
+            }
+            std::cerr << '\n';
+        }
+        return;
+    }
+    std::cerr << '{';
+    for (U j = 0; j < count; ++j) {
+        long long i = static_cast<long long>(__int128_t(l)+j);
+        if (j) std::cerr << ", ";
+        if (layout == Layout::indexed) std::cerr << '[' << i << "]=";
+        print(std::cerr, std::invoke(format, get(tree, i)));
+    }
+    if (count < length) std::cerr << (count ? ", " : "") << "... (+" << length-count << ')';
+    std::cerr << "}\n";
+}
+
+template<class Tree> void dump(Layout layout, const char* name, Tree&& tree, long long l, long long r) {
+    dump(layout, name, tree, l, r, std::identity{});
+}
+template<class Tree> void dump(Layout layout, const char* name, Tree&& tree, long long n) {
+    dump(layout, name, tree, 0, n);
+}
+template<class Tree, class Format>
+    requires std::invocable<Format, decltype(get(std::declval<Tree&>(), 0))>
+void dump(Layout layout, const char* name, Tree&& tree, long long n, Format format) {
+    dump(layout, name, tree, 0, n, format);
+}
+} // namespace kyopro_debug_seg_detail
+
+// lazyのget()は遅延タグをpushするが、各要素の値・区間クエリの結果は変わらない。
+// 計算量: 表示数K×点取得の計算量。ACL通常木O(K)、遅延木O(K log N)。コピーなし。
+#define debug_seg(seg, ...) \
+    do { ::kyopro_debug_seg_detail::dump(::kyopro_debug_seg_detail::Layout::values, #seg, (seg), __VA_ARGS__); } while (false)
+#define debug_seg_index(seg, ...) \
+    do { ::kyopro_debug_seg_detail::dump(::kyopro_debug_seg_detail::Layout::indexed, #seg, (seg), __VA_ARGS__); } while (false)
+#define debug_seg_table(seg, ...) \
+    do { ::kyopro_debug_seg_detail::dump(::kyopro_debug_seg_detail::Layout::table, #seg, (seg), __VA_ARGS__); } while (false)
+#else
+// 引数も評価しない。提出時にデバッグ用変数・formatterを残す必要はない。
+#define debug_seg(...) ((void)0)
+#define debug_seg_index(...) ((void)0)
+#define debug_seg_table(...) ((void)0)
+#endif
+
+#endif // KYOPRO_DEBUG_SEGTREE_HPP
+// END DEBUG SEGTREE
+
+#if defined(LOCAL) || defined(KYOPRO_DEBUG)
+#include "debug.h"
+#else
+#define debug(...) 42
+#endif
 
 
 
