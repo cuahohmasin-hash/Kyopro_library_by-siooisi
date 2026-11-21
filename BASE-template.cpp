@@ -68,9 +68,16 @@ struct custom_hash {
 
     template<class T, class U>
     size_t operator()(const pair<T, U>& p) const {
-        ull h1 = (*this)(p.first);
-        ull h2 = (*this)(p.second);
-        return combine(h1, h2);
+        if constexpr (is_integral_v<T> && is_integral_v<U> &&
+                      sizeof(T) <= sizeof(uint32_t) && sizeof(U) <= sizeof(uint32_t)) {
+            // 負数も各32bitのビット列に変換し、1回のハッシュで混ぜる。
+            const ull packed = (ull(uint32_t(p.first)) << 32) | uint32_t(p.second);
+            return hash_any(packed);
+        } else {
+            const ull h1 = (*this)(p.first);
+            const ull h2 = (*this)(p.second);
+            return combine(h1, h2);
+        }
     }
 
     // 整数幾何の Point{x,y} を直接キーにできる。
@@ -101,16 +108,33 @@ struct custom_hash {
         return combine(hash_any(0xbb67ae8584caa73bULL), (*this)(*value));
     }
 
-    
 };
-template<class K, class V> 
-struct safe_map : gp_hash_table<K, V, custom_hash> {
+
+namespace kyopro_hash_detail {
+using ResizePolicy = hash_standard_resize_policy<
+    hash_exponential_size_policy<>, hash_load_check_resize_trigger<>, true>;
+
+template<class K, class V>
+struct Table : gp_hash_table<K, V, custom_hash, equal_to<K>, direct_mask_range_hashing<>,
+                             linear_probe_fn<>, ResizePolicy> {
     bool count(const K& k) const { return this->find(k) != this->end(); }
+
+    // 挿入前に、格納する異なるキー数の上限を指定する。
+    void reserve(size_t expected_keys) {
+        constexpr size_t max_buckets = size_t{1} << (numeric_limits<size_t>::digits - 1);
+        if (expected_keys >= max_buckets / 2) throw length_error("hash table reserve");
+
+        // 最大負荷率は0.5。resizeがバケット数を2のべきへ切り上げる。
+        const size_t buckets = 2 * expected_keys + 1;
+        if (buckets > this->get_actual_size()) this->resize(buckets);
+    }
 };
-template<class K> 
-struct safe_set : gp_hash_table<K, null_type, custom_hash> {
-    bool count(const K& k) const { return this->find(k) != this->end(); }
-};
+}
+
+template<class K, class V>
+struct safe_map : kyopro_hash_detail::Table<K, V> {};
+template<class K>
+struct safe_set : kyopro_hash_detail::Table<K, null_type> {};
 template<class K, class V> using umap = unordered_map<K, V, custom_hash>;
 template<class K> using uset = unordered_set<K, custom_hash>;
 // --- PBDS ---
